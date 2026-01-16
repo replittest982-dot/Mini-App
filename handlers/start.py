@@ -1,12 +1,23 @@
 from aiogram import Router, types
 from aiogram.filters import CommandStart
-from keyboards.inline import get_webapp_keyboard
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from config import WEBAPP_URL
 
 router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message):
+    # Создаем кнопку с твоей ссылкой
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🎮 Играть в Крестики-Нолики", 
+            web_app=WebAppInfo(url=WEBAPP_URL)
+        )]
+    ])
+    
     await message.answer(
-        "Привет! Нажми на кнопку ниже, чтобы запустить приложение:",
-        reply_markup=get_webapp_keyboard()
+        f"Привет, {message.from_user.first_name}!\n"
+        "Я бот с искусственным интеллектом.\n"
+        "Жми кнопку, чтобы попробовать меня обыграть! 👇",
+        reply_markup=markup
     )
