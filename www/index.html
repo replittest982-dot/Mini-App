@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background-color: var(--tg-theme-bg-color, #1a1a1a);
+            color: var(--tg-theme-text-color, #ffffff);
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 { margin-top: 20px; font-size: 24px; }
+        .status { margin-bottom: 20px; font-size: 18px; color: var(--tg-theme-hint-color, #888); }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-gap: 5px;
+            margin-bottom: 30px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: var(--tg-theme-secondary-bg-color, #2c2c2c);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            user-select: none;
+        }
+        .cell.x { color: #4facfe; } /* Голубой для игрока */
+        .cell.o { color: #ff5858; } /* Красный для ИИ */
+        
+        button {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: none; /* Скрыта пока игра идет */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Крестики-Нолики</h1>
+    <div class="status" id="status">Твой ход (X)</div>
+    
+    <div class="board" id="board">
+        <div class="cell" onclick="move(0)"></div>
+        <div class="cell" onclick="move(1)"></div>
+        <div class="cell" onclick="move(2)"></div>
+        <div class="cell" onclick="move(3)"></div>
+        <div class="cell" onclick="move(4)"></div>
+        <div class="cell" onclick="move(5)"></div>
+        <div class="cell" onclick="move(6)"></div>
+        <div class="cell" onclick="move(7)"></div>
+        <div class="cell" onclick="move(8)"></div>
+    </div>
+
+    <button id="resetBtn" onclick="resetGame()">Играть снова</button>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // На весь экран
+
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+        const HUMAN = 'X';
+        const AI = 'O';
+
+        const statusDisplay = document.getElementById('status');
+        const cells = document.querySelectorAll('.cell');
+        const resetBtn = document.getElementById('resetBtn');
+
+        function move(index) {
+            if (board[index] !== '' || !gameActive) return;
+            
+            // Ход игрока
+            makeMove(index, HUMAN);
+            
+            if (checkWin(board, HUMAN)) {
+                endGame("Ты победил! 🎉");
+                tg.sendData("win"); // Сообщаем боту о победе
+                return;
+            }
+            if (checkDraw()) {
+                endGame("Ничья 🤝");
+                tg.sendData("draw");
+                return;
+            }
+
+            // Ход ИИ
+            statusDisplay.innerText = "Думает ИИ...";
+            gameActive = false; // Блокируем клики
+            
+            setTimeout(() => {
+                let aiMove = bestMove();
+                makeMove(aiMove, AI);
+                
+                if (checkWin(board, AI)) {
+                    endGame("ИИ победил 🤖");
+                    tg.sendData("loss");
+                } else if (checkDraw()) {
+                    endGame("Ничья 🤝");
+                    tg.sendData("draw");
+                } else {
+                    gameActive = true;
+                    statusDisplay.innerText = "Твой ход (X)";
+                }
+            }, 500);
+        }
+
+        function makeMove(index, player) {
+            board[index] = player;
+            cells[index].innerText = player;
+            cells[index].classList.add(player.toLowerCase());
+        }
+
+        function endGame(message) {
+            gameActive = false;
+            statusDisplay.innerText = message;
+            resetBtn.style.display = 'block';
+            tg.HapticFeedback.notificationOccurred(message.includes("победил") ? 'success' : 'error');
+        }
+
+        function resetGame() {
+            board = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            statusDisplay.innerText = "Твой ход (X)";
+            resetBtn.style.display = 'none';
+            cells.forEach(cell => {
+                cell.innerText = '';
+                cell.classList.remove('x', 'o');
+            });
+        }
+
+        function checkDraw() {
+            return !board.includes('');
+        }
+
+        // --- МОЗГИ ИИ (Minimax Algorithm) ---
+        function bestMove() {
+            let bestScore = -Infinity;
+            let move;
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === '') {
+                    board[i] = AI;
+                    let score = minimax(board, 0, false);
+                    board[i] = '';
+                    if (score > bestScore) {
+                        bestScore = score;
+                        move = i;
+                    }
+                }
+            }
+            return move;
+        }
+
+        const scores = { O: 10, X: -10, tie: 0 };
+
+        function minimax(board, depth, isMaximizing) {
+            if (checkWin(board, AI)) return scores.O;
+            if (checkWin(board, HUMAN)) return scores.X;
+            if (checkDraw()) return scores.tie;
+
+            if (isMaximizing) {
+                let bestScore = -Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] === '') {
+                        board[i] = AI;
+                        let score = minimax(board, depth + 1, false);
+                        board[i] = '';
+                        bestScore = Math.max(score, bestScore);
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] === '') {
+                        board[i] = HUMAN;
+                        let score = minimax(board, depth + 1, true);
+                        board[i] = '';
+                        bestScore = Math.min(score, bestScore);
+                    }
+                }
+                return bestScore;
+            }
+        }
+
+        function checkWin(bd, player) {
+            const wins = [
+                [0,1,2], [3,4,5], [6,7,8], // Горизонтали
+                [0,3,6], [1,4,7], [2,5,8], // Вертикали
+                [0,4,8], [2,4,6]           // Диагонали
+            ];
+            return wins.some(combo => combo.every(i => bd[i] === player));
+        }
+    </script>
+</body>
+</html>
