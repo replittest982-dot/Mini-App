@@ -1,7 +1,7 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Твой токен бота (берется из переменных окружения или вставь сюда в кавычках)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBAPP_URL = os.getenv("WEBAPP_URL") # Ссылка на твой фронтенд
+# ТВОЯ ССЫЛКА НА MINI APP
+WEBAPP_URL = "https://krestikinoliki.bothost.ru"
